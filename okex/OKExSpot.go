@@ -7,6 +7,7 @@ import (
 	"github.com/nntaoli-project/goex/internal/logger"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -57,6 +58,28 @@ func (ok *OKExSpot) GetAccount() (*Account, error) {
 	return account, nil
 }
 
+//OrdType 订单类型
+//market：市价单
+//limit：限价单
+//post_only：只做maker单
+//fok：全部成交或立即取消
+//ioc：立即成交并取消剩余
+//optimal_limit_ioc：市价委托立即成交并取消剩余（仅适用交割、永续）
+type OrderParamV5 struct {
+	InstId     string `json:"instId"` //产品ID
+	TdMode     string `json:"tdMode"`
+	Ccy        string `json:"ccy"`
+	ClOrdId    string `json:"clOrdId"`
+	Tag        string `json:"tag"`
+	Side       string `json:"side"` //订单方向 buy：买 sell：卖
+	PosSide    string `json:"posSide"`
+	OrdType    string `json:"ordType"` //
+	Sz         string `json:"sz"`      //委托数量
+	Px         string `json:"px"`      //委托价格，
+	ReduceOnly bool   `json:"reduceOnly"`
+	TgtCcy     string `json:"tgtCcy"` //委托数量的类型 base_ccy：交易货币 ；quote_ccy：计价货币 仅适用于币币订单
+}
+
 type PlaceOrderParam struct {
 	ClientOid     string  `json:"client_oid"`
 	Type          string  `json:"type"`
@@ -75,6 +98,14 @@ type PlaceOrderResponse struct {
 	Result       bool   `json:"result"`
 	ErrorCode    string `json:"error_code"`
 	ErrorMessage string `json:"error_message"`
+}
+
+type PlaceOrderResponseV5 struct {
+	OrdId   string `json:"ordId"`
+	ClOrdId string `json:"clOrdId"`
+	Tag     string `json:"tag"`
+	SCode   string `json:"sCode"`
+	SMsg    string `json:"sMsg"`
 }
 
 /**
@@ -107,6 +138,70 @@ func (ok *OKExSpot) BatchPlaceOrders(orders []Order) ([]PlaceOrderResponse, erro
 	}
 
 	return ret, nil
+}
+
+func (ok *OKExSpot) PlaceOrderV5(ty string, ord *Order) (*Order, error) {
+	urlPath := "/api/v5/trade/order"
+	param := OrderParamV5{
+		ClOrdId: GenerateOrderClientId(32),
+		InstId:  ord.Currency.AdaptUsdToUsdt().ToLower().ToSymbol("-"),
+	}
+	switch ord.Side {
+	case BUY, SELL:
+		param.Side = strings.ToLower(ord.Side.String())
+		param.Px = FloatToString(ord.Price, 5)
+		param.Sz = FloatToString(ord.Amount, 5)
+	case SELL_MARKET:
+		param.TdMode = "cash"
+		param.Side = "sell"
+		param.Sz = FloatToString(ord.Amount, 5)
+	case BUY_MARKET:
+		param.TdMode = "cash"
+		param.Side = "buy"
+		param.Px = FloatToString(ord.Price, 5)
+	default:
+		panic("not support")
+	}
+
+	switch ty {
+	case "limit":
+		param.OrdType = "limit"
+	case "market":
+		param.OrdType = "market"
+	case "post_only":
+		param.OrdType = "post_only"
+	case "fok":
+		param.OrdType = "fok"
+	case "ioc":
+		param.OrdType = "ioc"
+	}
+
+	param.Sz = FloatToString(ord.Amount, 5)
+
+	jsonStr, _, _ := ok.OKEx.BuildRequestBody(param)
+	fmt.Println("jsonStr:", jsonStr)
+	var response OKRes
+	err := ok.OKEx.DoRequest("POST", urlPath, jsonStr, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.Code != "0" {
+		fmt.Println("response.Data: %v", response.Data)
+		return nil, errors.New(int32(ToInt(response.Code)), response.Msg)
+	}
+
+	res := response.Data.([]interface{})
+	if len(res) == 0 {
+		return nil, fmt.Errorf("take order failed")
+	}
+	r := res[0].(map[string]interface{})
+	if r["sCode"] != "0" {
+		return nil, fmt.Errorf("take order failed, erroCode: %s, errorMsg:%s", r["sCode"], r["sMsg"])
+	}
+	ord.Cid = r["clOrdId"].(string)
+	ord.OrderID2 = r["ordId"].(string)
+	return ord, nil
 }
 
 func (ok *OKExSpot) PlaceOrder(ty string, ord *Order) (*Order, error) {
@@ -189,6 +284,24 @@ func (ok *OKExSpot) LimitSell(amount, price string, currency CurrencyPair, opt .
 	})
 }
 
+func (ok *OKExSpot) MarketBuyV5(amount, price string, currency CurrencyPair) (*Order, error) {
+	return ok.PlaceOrderV5("market", &Order{
+		Price:    ToFloat64(price),
+		Amount:   ToFloat64(amount),
+		Currency: currency,
+		Side:     BUY_MARKET,
+	})
+}
+
+func (ok *OKExSpot) MarketSellV5(amount, price string, currency CurrencyPair) (*Order, error) {
+	return ok.PlaceOrderV5("market", &Order{
+		Price:    ToFloat64(price),
+		Amount:   ToFloat64(amount),
+		Currency: currency,
+		Side:     SELL_MARKET,
+	})
+}
+
 func (ok *OKExSpot) MarketBuy(amount, price string, currency CurrencyPair) (*Order, error) {
 	return ok.PlaceOrder("market", &Order{
 		Price:    ToFloat64(price),
@@ -248,39 +361,87 @@ type OrderResponse struct {
 	OrderType      int     `json:"order_type,string"`
 	Timestamp      string  `json:"timestamp"`
 }
+type OrderResponseV5 struct {
+	InstType    string `json:"instType"`
+	InstId      string `json:"instId"`
+	TgtCcy      string `json:"tgtCcy"`
+	Ccy         string `json:"ccy"`
+	OrdId       string `json:"ordId"`
+	ClOrdId     string `json:"clOrdId"`
+	Tag         string `json:"tag"`
+	Px          string `json:"px"`
+	Sz          string `json:"sz"`
+	Pnl         string `json:"pnl"`
+	OrdType     string `json:"ordType"`
+	Side        int    `json:"side"`
+	PosSide     string `json:"posSide"`
+	TdMode      int    `json:"tdMode"`
+	AccFillSz   string `json:"accFillSz"`
+	FillPx      string `json:"fillPx"`
+	TradeId     string `json:"tradeId"`
+	FillSz      string `json:"fillSz"`
+	FillTime    string `json:"fillTime"`
+	AvgPx       string `json:"avgPx"`
+	State       string `json:"state"`
+	Lever       string `json:"lever"`
+	TpTriggerPx string `json:"tpTriggerPx"`
+	TpOrdPx     string `json:"tpOrdPx"`
+	SlTriggerPx string `json:"slTriggerPx"`
+	SlOrdPx     string `json:"slOrdPx"`
+	FeeCcy      string `json:"feeCcy"`
+	Fee         string `json:"fee"`
+	RebateCcy   string `json:"rebateCcy"`
+	Rebate      string `json:"rebate"`
+	Category    string `json:"category"`
+	UTime       string `json:"uTime"`
+	CTime       string `json:"cTime"`
+}
 
-func (ok *OKExSpot) adaptOrder(response OrderResponse) *Order {
+func (ok *OKExSpot) adaptOrder(response map[string]interface{}) *Order {
+	state := response["state"].(string)
+	var status TradeStatus
+	if state == "canceled" {
+		status = ORDER_CANCEL
+	} else if state == "live" {
+		status = ORDER_UNFINISH
+	} else if state == "partially_filled" {
+		status = ORDER_PART_FINISH
+	} else if state == "filled" {
+		status = ORDER_FINISH
+	} else {
+		panic(state)
+	}
 	ordInfo := &Order{
-		Cid:        response.ClientOid,
-		OrderID2:   response.OrderId,
-		Price:      ToFloat64(response.Price),
-		Amount:     response.Size,
-		AvgPrice:   ToFloat64(response.PriceAvg),
-		DealAmount: ToFloat64(response.FilledSize),
-		Status:     ok.adaptOrderState(response.State),
-		Fee:        ToFloat64(response.Fee)}
+		Cid:        response["clOrdId"].(string),
+		OrderID2:   response["ordId"].(string),
+		Price:      ToFloat64(response["px"].(string)),
+		Amount:     ToFloat64(response["sz"].(string)),
+		AvgPrice:   ToFloat64(response["avgPx"].(string)),
+		DealAmount: ToFloat64(response["accFillSz"].(string)),
+		Status:     status,
+		Fee:        ToFloat64(response["fee"].(string))}
 
-	switch response.Side {
+	switch response["side"].(string) {
 	case "buy":
-		if response.Type == "market" {
+		if response["ordType"] == "market" {
 			ordInfo.Side = BUY_MARKET
-			ordInfo.DealAmount = ToFloat64(response.Notional) //成交金额
+			ordInfo.DealAmount = ToFloat64(response["accFillSz"].(string)) //成交金额
 		} else {
 			ordInfo.Side = BUY
 		}
 	case "sell":
-		if response.Type == "market" {
+		if response["ordType"] == "market" {
 			ordInfo.Side = SELL_MARKET
-			ordInfo.DealAmount = ToFloat64(response.Notional) //成交数量
+			ordInfo.DealAmount = ToFloat64(response["accFillSz"].(string)) //成交数量
 		} else {
 			ordInfo.Side = SELL
 		}
 	}
 
-	date, err := time.Parse(time.RFC3339, response.Timestamp)
+	date, err := time.Parse(time.RFC3339, response["uTime"].(string))
 	//log.Println(date.Local().UnixNano()/int64(time.Millisecond))
 	if err != nil {
-		logger.Error("parse timestamp err=", err, ",timestamp=", response.Timestamp)
+		logger.Error("parse timestamp err=", err, ",timestamp=", response["uTime"].(string))
 	} else {
 		ordInfo.OrderTime = int(date.UnixNano() / int64(time.Millisecond))
 	}
@@ -290,34 +451,48 @@ func (ok *OKExSpot) adaptOrder(response OrderResponse) *Order {
 
 //orderId can set client oid or orderId
 func (ok *OKExSpot) GetOneOrder(orderId string, currency CurrencyPair) (*Order, error) {
-	urlPath := "/api/spot/v3/orders/" + orderId + "?instrument_id=" + currency.AdaptUsdToUsdt().ToSymbol("-")
+	urlPath := fmt.Sprintf("/api/v5/trade/order?ordId=%s&instId=%s", orderId, currency.AdaptUsdToUsdt().ToSymbol("-"))
 	//param := struct {
 	//	InstrumentId string `json:"instrument_id"`
 	//}{currency.AdaptUsdToUsdt().ToLower().ToSymbol("-")}
 	//reqBody, _, _ := ok.BuildRequestBody(param)
-	var response OrderResponse
+	var response OKRes
 	err := ok.OKEx.DoRequest("GET", urlPath, "", &response)
 	if err != nil {
 		return nil, err
 	}
-
-	ordInfo := ok.adaptOrder(response)
+	if response.Code != "0" {
+		return nil, fmt.Errorf("response.Code: %s", response.Code)
+	}
+	res := response.Data.([]interface{})
+	if len(res) == 0 {
+		return nil, fmt.Errorf("no orderId:%s", orderId)
+	}
+	ordInfo := ok.adaptOrder(res[0].(map[string]interface{}))
 	ordInfo.Currency = currency
 
 	return ordInfo, nil
 }
 
 func (ok *OKExSpot) GetUnfinishOrders(currency CurrencyPair) ([]Order, error) {
-	urlPath := fmt.Sprintf("/api/spot/v3/orders_pending?instrument_id=%s", currency.AdaptUsdToUsdt().ToSymbol("-"))
-	var response []OrderResponse
+	urlPath := fmt.Sprintf("/api/v5/trade/orders-pending?ordType=market&instType=SPOT&instId=%s", currency.AdaptUsdToUsdt().ToSymbol("-"))
+	var response OKRes
 	err := ok.OKEx.DoRequest("GET", urlPath, "", &response)
 	if err != nil {
 		return nil, err
 	}
+	if response.Code != "0" {
+		return nil, fmt.Errorf("response.Code: %s", response.Code)
+	}
+
+	res := response.Data.([]interface{})
+	if len(res) == 0 {
+		return nil, fmt.Errorf("no currency:%s", currency.String())
+	}
 
 	var ords []Order
-	for _, itm := range response {
-		ord := ok.adaptOrder(itm)
+	for _, itm := range res {
+		ord := ok.adaptOrder(itm.(map[string]interface{}))
 		ord.Currency = currency
 		ords = append(ords, *ord)
 	}
@@ -326,24 +501,33 @@ func (ok *OKExSpot) GetUnfinishOrders(currency CurrencyPair) ([]Order, error) {
 }
 
 func (ok *OKExSpot) GetOrderHistorys(currency CurrencyPair, optional ...OptionalParameter) ([]Order, error) {
-	urlPath := "/api/spot/v3/orders"
+	urlPath := fmt.Sprintf("/api/v5/trade/orders-history?ordType=market&instType=SPOT&instId=%s", currency.AdaptUsdToUsdt().ToSymbol("-"))
 
-	param := url.Values{}
-	param.Set("instrument_id", currency.AdaptUsdToUsdt().ToSymbol("-"))
-	param.Set("state", "7")
-	MergeOptionalParameter(&param, optional...)
+	//param := url.Values{}
+	//param.Set("instrument_id", currency.AdaptUsdToUsdt().ToSymbol("-"))
+	//param.Set("state", "7")
+	//MergeOptionalParameter(&param, optional...)
 
-	urlPath += "?" + param.Encode()
+	//urlPath += "?" + param.Encode()
 
-	var response []OrderResponse
+	var response OKRes
 	err := ok.OKEx.DoRequest("GET", urlPath, "", &response)
 	if err != nil {
 		return nil, err
 	}
 
+	if response.Code != "0" {
+		return nil, fmt.Errorf("response.Code: %s", response.Code)
+	}
+
+	res := response.Data.([]interface{})
+	if len(res) == 0 {
+		return nil, fmt.Errorf("no currency:%s", currency.String())
+	}
+
 	var orders []Order
-	for _, itm := range response {
-		ord := ok.adaptOrder(itm)
+	for _, itm := range res {
+		ord := ok.adaptOrder(itm.(map[string]interface{}))
 		ord.Currency = currency
 		orders = append(orders, *ord)
 	}
@@ -353,6 +537,25 @@ func (ok *OKExSpot) GetOrderHistorys(currency CurrencyPair, optional ...Optional
 
 func (ok *OKExSpot) GetExchangeName() string {
 	return OKEX
+}
+
+type spotTickerResponseV5 struct {
+	InstType  string `json:"instType"`
+	InstId    string `json:"instId"`
+	Last      string `json:"last"`
+	LastSz    string `json:"lastSz"`
+	AskPx     string `json:"askPx"`
+	AskSz     string `json:"askSz"`
+	BidPx     string `json:"bidPx"`
+	BidSz     string `json:"bidSz"`
+	Open24h   string `json:"open24h"`
+	High24h   string `json:"high24h"`
+	Low24h    string `json:"low24h"`
+	VolCcy24h string `json:"volCcy24h"`
+	Vol24h    string `json:"vol24h"`
+	SodUtc0   string `json:"sodUtc0"`
+	SodUtc8   string `json:"sodUtc8"`
+	Ts        string `json:"ts"`
 }
 
 type spotTickerResponse struct {
@@ -366,55 +569,81 @@ type spotTickerResponse struct {
 	Timestamp     string  `json:"timestamp"`
 }
 
+type OKRes struct {
+	Code string      `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
+}
+
 func (ok *OKExSpot) GetTicker(currency CurrencyPair) (*Ticker, error) {
-	urlPath := fmt.Sprintf("/api/spot/v3/instruments/%s/ticker", currency.AdaptUsdToUsdt().ToSymbol("-"))
-	var response spotTickerResponse
-	err := ok.OKEx.DoRequest("GET", urlPath, "", &response)
+	urlPath := fmt.Sprintf("/api/v5/market/ticker?instId=%s", currency.AdaptUsdToUsdt().ToSymbol("-"))
+	var responses OKRes
+	err := ok.OKEx.DoRequest("GET", urlPath, "", &responses)
 	if err != nil {
 		return nil, err
 	}
-
-	date, _ := time.Parse(time.RFC3339, response.Timestamp)
+	if responses.Code != "0" {
+		return nil, fmt.Errorf("responses.Code: %s", responses.Code)
+	}
+	dat := responses.Data.([]interface{})
+	if len(dat) < 1 {
+		return nil, fmt.Errorf("no pair: %s", currency.String())
+	}
+	response := dat[0].(map[string]interface{})
+	date, _ := time.Parse(time.RFC3339, response["ts"].(string))
+	last, _ := strconv.ParseFloat(response["last"].(string), 64)
+	high24h, _ := strconv.ParseFloat(response["high24h"].(string), 64)
+	low24h, _ := strconv.ParseFloat(response["low24h"].(string), 64)
+	sell, _ := strconv.ParseFloat(response["askPx"].(string), 64)
+	buy, _ := strconv.ParseFloat(response["bidPx"].(string), 64)
+	vol, _ := strconv.ParseFloat(response["volCcy24h"].(string), 64)
 	return &Ticker{
 		Pair: currency,
-		Last: response.Last,
-		High: response.High24h,
-		Low:  response.Low24h,
-		Sell: response.BestAsk,
-		Buy:  response.BestBid,
-		Vol:  response.BaseVolume24h,
+		Last: last,
+		High: high24h,
+		Low:  low24h,
+		Sell: sell,
+		Buy:  buy,
+		Vol:  vol,
 		Date: uint64(time.Duration(date.UnixNano() / int64(time.Millisecond)))}, nil
 }
 
 func (ok *OKExSpot) GetDepth(size int, currency CurrencyPair) (*Depth, error) {
-	urlPath := fmt.Sprintf("/api/spot/v3/instruments/%s/book?size=%d", currency.AdaptUsdToUsdt().ToSymbol("-"), size)
 
-	var response struct {
-		Asks      [][]interface{} `json:"asks"`
-		Bids      [][]interface{} `json:"bids"`
-		Timestamp string          `json:"timestamp"`
-	}
+	urlPath := fmt.Sprintf("/api/v5/market/books?instId=%s&sz=%d", currency.AdaptUsdToUsdt().ToSymbol("-"), size)
 
+	//var response struct {
+	//	Asks      [][]interface{} `json:"asks"`
+	//	Bids      [][]interface{} `json:"bids"`
+	//	Timestamp string          `json:"timestamp"`
+	//}
+	var response OKRes
 	err := ok.OKEx.DoRequest("GET", urlPath, "", &response)
 	if err != nil {
 		return nil, err
 	}
-
+	if response.Code != "0" {
+		return nil, fmt.Errorf("responses.Code: %s", response.Code)
+	}
 	dep := new(Depth)
 	dep.Pair = currency
-	dep.UTime, _ = time.Parse(time.RFC3339, response.Timestamp)
-
-	for _, itm := range response.Asks {
+	r := response.Data.([]interface{})
+	res := r[0].(map[string]interface{})
+	dep.UTime, _ = time.Parse(time.RFC3339, res["ts"].(string))
+	as := res["asks"].([]interface{})
+	for _, itm := range as {
+		i := itm.([]interface{})
 		dep.AskList = append(dep.AskList, DepthRecord{
-			Price:  ToFloat64(itm[0]),
-			Amount: ToFloat64(itm[1]),
+			Price:  ToFloat64(i[0].(string)),
+			Amount: ToFloat64(i[1].(string)),
 		})
 	}
-
-	for _, itm := range response.Bids {
+	bs := res["bids"].([]interface{})
+	for _, itm := range bs {
+		i := itm.([]interface{})
 		dep.BidList = append(dep.BidList, DepthRecord{
-			Price:  ToFloat64(itm[0]),
-			Amount: ToFloat64(itm[1]),
+			Price:  ToFloat64(i[0]),
+			Amount: ToFloat64(i[1]),
 		})
 	}
 

@@ -43,6 +43,7 @@ type APIBuilder struct {
 	futuresEndPoint  string
 	endPoint         string
 	futuresLever     float64
+	Simulated        bool
 }
 
 type HttpClientConfig struct {
@@ -125,6 +126,11 @@ func (builder *APIBuilder) GetHttpClientConfig() *HttpClientConfig {
 
 func (builder *APIBuilder) GetHttpClient() *http.Client {
 	return builder.client
+}
+
+func (builder *APIBuilder) SetSimulated(boo bool) (_builder *APIBuilder) {
+	builder.Simulated = boo
+	return builder
 }
 
 func (builder *APIBuilder) HttpProxy(proxyUrl string) (_builder *APIBuilder) {
@@ -213,12 +219,17 @@ func (builder *APIBuilder) Build(exName string) (api API) {
 			ApiKey:       builder.apiKey,
 			ApiSecretKey: builder.secretkey})
 	case OKEX_V3, OKEX:
+		s := false
+		if builder.Simulated {
+			s = true
+		}
 		_api = okex.NewOKEx(&APIConfig{
 			HttpClient:    builder.client,
 			ApiKey:        builder.apiKey,
 			ApiSecretKey:  builder.secretkey,
 			ApiPassphrase: builder.apiPassphrase,
 			Endpoint:      builder.endPoint,
+			Simulated:     s,
 		})
 	case BITFINEX:
 		_api = bitfinex.New(builder.client, builder.apiKey, builder.secretkey)

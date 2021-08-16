@@ -169,9 +169,10 @@ func (ok *OKExMargin) GetUnfinishOrders(currency CurrencyPair) ([]Order, error) 
 	var orders []Order
 
 	for _, info := range response {
-		ord := ok.OKExSpot.adaptOrder(info)
-		ord.Currency = currency
-		orders = append(orders, *ord)
+		fmt.Println(info)
+		//ord := ok.OKExSpot.adaptOrder(info)
+		//ord.Currency = currency
+		//orders = append(orders, *ord)
 	}
 
 	return orders, nil
@@ -212,8 +213,8 @@ func (ok *OKExMargin) GetOneOrder(orderId string, currency CurrencyPair) (*Order
 		return nil, err
 	}
 
-	ordInfo := ok.OKExSpot.adaptOrder(response)
-	ordInfo.Currency = currency
+	//ordInfo := ok.OKExSpot.adaptOrder(response)
+	//ordInfo.Currency = currency
 
-	return ordInfo, nil
+	return nil, nil
 }

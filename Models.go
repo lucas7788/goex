@@ -117,10 +117,10 @@ type APIConfig struct {
 	Endpoint      string
 	ApiKey        string
 	ApiSecretKey  string
-	ApiPassphrase string //for okex.com v3 api
-	ClientId      string //for bitstamp.net , huobi.pro
-
-	Lever float64 //杠杆倍数 , for future
+	ApiPassphrase string  //for okex.com v3 api
+	ClientId      string  //for bitstamp.net , huobi.pro
+	Lever         float64 //杠杆倍数 , for future
+	Simulated     bool
 }
 
 type Kline struct {

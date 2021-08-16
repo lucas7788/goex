@@ -25,6 +25,7 @@ type OKEx struct {
 	OKExV3FuturesWs *OKExV3FuturesWs
 	OKExV3SpotWs    *OKExV3SpotWs
 	OKExV3SwapWs    *OKExV3SwapWs
+	Simulated       bool
 }
 
 func NewOKEx(config *APIConfig) *OKEx {
@@ -40,6 +41,7 @@ func NewOKEx(config *APIConfig) *OKEx {
 	okex.OKExV3FuturesWs = NewOKExV3FuturesWs(okex)
 	okex.OKExV3SpotWs = NewOKExSpotV3Ws(okex)
 	okex.OKExV3SwapWs = NewOKExV3SwapWs(okex)
+	okex.Simulated = config.Simulated
 	return okex
 }
 
@@ -53,16 +55,22 @@ func (ok *OKEx) UUID() string {
 
 func (ok *OKEx) DoRequest(httpMethod, uri, reqBody string, response interface{}) error {
 	url := ok.config.Endpoint + uri
+	//fmt.Println("url:", url)
 	sign, timestamp := ok.doParamSign(httpMethod, uri, reqBody)
 	//logger.Log.Debug("timestamp=", timestamp, ", sign=", sign)
-	resp, err := NewHttpRequest(ok.config.HttpClient, httpMethod, url, reqBody, map[string]string{
+	header := map[string]string{
 		CONTENT_TYPE: APPLICATION_JSON_UTF8,
 		ACCEPT:       APPLICATION_JSON,
 		//COOKIE:               LOCALE + "en_US",
 		OK_ACCESS_KEY:        ok.config.ApiKey,
 		OK_ACCESS_PASSPHRASE: ok.config.ApiPassphrase,
 		OK_ACCESS_SIGN:       sign,
-		OK_ACCESS_TIMESTAMP:  fmt.Sprint(timestamp)})
+		OK_ACCESS_TIMESTAMP:  fmt.Sprint(timestamp)}
+	// 模拟盘交易
+	if ok.Simulated {
+		header["x-simulated-trading"] = "1"
+	}
+	resp, err := NewHttpRequest(ok.config.HttpClient, httpMethod, url, reqBody, header)
 	if err != nil {
 		//log.Println(err)
 		return err
@@ -140,11 +148,11 @@ func (ok *OKEx) LimitSell(amount, price string, currency CurrencyPair, opt ...Li
 }
 
 func (ok *OKEx) MarketBuy(amount, price string, currency CurrencyPair) (*Order, error) {
-	return ok.OKExSpot.MarketBuy(amount, price, currency)
+	return ok.OKExSpot.MarketBuyV5(amount, price, currency)
 }
 
 func (ok *OKEx) MarketSell(amount, price string, currency CurrencyPair) (*Order, error) {
-	return ok.OKExSpot.MarketSell(amount, price, currency)
+	return ok.OKExSpot.MarketSellV5(amount, price, currency)
 }
 
 func (ok *OKEx) CancelOrder(orderId string, currency CurrencyPair) (bool, error) {
