@@ -58,28 +58,6 @@ func (ok *OKExSpot) GetAccount() (*Account, error) {
 	return account, nil
 }
 
-//OrdType 订单类型
-//market：市价单
-//limit：限价单
-//post_only：只做maker单
-//fok：全部成交或立即取消
-//ioc：立即成交并取消剩余
-//optimal_limit_ioc：市价委托立即成交并取消剩余（仅适用交割、永续）
-type OrderParamV5 struct {
-	InstId     string `json:"instId"` //产品ID
-	TdMode     string `json:"tdMode"`
-	Ccy        string `json:"ccy"`
-	ClOrdId    string `json:"clOrdId"`
-	Tag        string `json:"tag"`
-	Side       string `json:"side"` //订单方向 buy：买 sell：卖
-	PosSide    string `json:"posSide"`
-	OrdType    string `json:"ordType"` //
-	Sz         string `json:"sz"`      //委托数量
-	Px         string `json:"px"`      //委托价格，
-	ReduceOnly bool   `json:"reduceOnly"`
-	TgtCcy     string `json:"tgtCcy"` //委托数量的类型 base_ccy：交易货币 ；quote_ccy：计价货币 仅适用于币币订单
-}
-
 type PlaceOrderParam struct {
 	ClientOid     string  `json:"client_oid"`
 	Type          string  `json:"type"`
@@ -100,13 +78,6 @@ type PlaceOrderResponse struct {
 	ErrorMessage string `json:"error_message"`
 }
 
-type PlaceOrderResponseV5 struct {
-	OrdId   string `json:"ordId"`
-	ClOrdId string `json:"clOrdId"`
-	Tag     string `json:"tag"`
-	SCode   string `json:"sCode"`
-	SMsg    string `json:"sMsg"`
-}
 
 /**
 Must Set Client Oid
@@ -140,70 +111,6 @@ func (ok *OKExSpot) BatchPlaceOrders(orders []Order) ([]PlaceOrderResponse, erro
 	return ret, nil
 }
 
-func (ok *OKExSpot) PlaceOrderV5(ty string, ord *Order) (*Order, error) {
-	urlPath := "/api/v5/trade/order"
-	param := OrderParamV5{
-		ClOrdId: GenerateOrderClientId(32),
-		InstId:  ord.Currency.AdaptUsdToUsdt().ToUpper().ToSymbol("-"),
-	}
-	switch ord.Side {
-	case BUY, SELL:
-		param.Side = strings.ToLower(ord.Side.String())
-		param.Px = FloatToString(ord.Price, 5)
-		param.Sz = FloatToString(ord.Amount, 5)
-	case SELL_MARKET:
-		param.TdMode = "cash"
-		param.Side = "sell"
-		param.Sz = FloatToString(ord.Amount, 5)
-	case BUY_MARKET:
-		param.TdMode = "cash"
-		param.Side = "buy"
-		param.Sz = FloatToString(ord.Amount, 5)
-	default:
-		panic("not support")
-	}
-
-	switch ty {
-	case "limit":
-		param.OrdType = "limit"
-		param.TdMode = "cash"
-	case "market":
-		param.OrdType = "market"
-	case "post_only":
-		param.OrdType = "post_only"
-	case "fok":
-		param.OrdType = "fok"
-	case "ioc":
-		param.OrdType = "ioc"
-	}
-
-	param.Sz = FloatToString(ord.Amount, 5)
-
-	jsonStr, _, _ := ok.OKEx.BuildRequestBody(param)
-	fmt.Println("jsonStr:", jsonStr)
-	var response OKRes
-	err := ok.OKEx.DoRequest("POST", urlPath, jsonStr, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	if response.Code != "0" {
-		fmt.Println("response.Data: %v", response.Data)
-		return nil, errors.New(int32(ToInt(response.Code)), response.Msg)
-	}
-
-	res := response.Data.([]interface{})
-	if len(res) == 0 {
-		return nil, fmt.Errorf("take order failed")
-	}
-	r := res[0].(map[string]interface{})
-	if r["sCode"] != "0" {
-		return nil, fmt.Errorf("take order failed, erroCode: %s, errorMsg:%s", r["sCode"], r["sMsg"])
-	}
-	ord.Cid = r["clOrdId"].(string)
-	ord.OrderID2 = r["ordId"].(string)
-	return ord, nil
-}
 
 func (ok *OKExSpot) PlaceOrder(ty string, ord *Order) (*Order, error) {
 	urlPath := "/api/spot/v3/orders"
@@ -272,18 +179,6 @@ func (ok *OKExSpot) LimitBuy(amount, price string, currency CurrencyPair, opt ..
 	})
 }
 
-func (ok *OKExSpot) LimitBuyV5(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
-	ty := "limit"
-	if len(opt) > 0 {
-		ty = opt[0].String()
-	}
-	return ok.PlaceOrderV5(ty, &Order{
-		Price:    ToFloat64(price),
-		Amount:   ToFloat64(amount),
-		Currency: currency,
-		Side:     BUY,
-	})
-}
 
 func (ok *OKExSpot) LimitSell(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
 	ty := "limit"
@@ -295,37 +190,6 @@ func (ok *OKExSpot) LimitSell(amount, price string, currency CurrencyPair, opt .
 		Amount:   ToFloat64(amount),
 		Currency: currency,
 		Side:     SELL,
-	})
-}
-
-func (ok *OKExSpot) LimitSellV5(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
-	ty := "limit"
-	if len(opt) > 0 {
-		ty = opt[0].String()
-	}
-	return ok.PlaceOrderV5(ty, &Order{
-		Price:    ToFloat64(price),
-		Amount:   ToFloat64(amount),
-		Currency: currency,
-		Side:     SELL,
-	})
-}
-
-func (ok *OKExSpot) MarketBuyV5(amount, price string, currency CurrencyPair) (*Order, error) {
-	return ok.PlaceOrderV5("market", &Order{
-		Price:    ToFloat64(price),
-		Amount:   ToFloat64(amount),
-		Currency: currency,
-		Side:     BUY_MARKET,
-	})
-}
-
-func (ok *OKExSpot) MarketSellV5(amount, price string, currency CurrencyPair) (*Order, error) {
-	return ok.PlaceOrderV5("market", &Order{
-		Price:    ToFloat64(price),
-		Amount:   ToFloat64(amount),
-		Currency: currency,
-		Side:     SELL_MARKET,
 	})
 }
 

@@ -17,7 +17,7 @@ const baseUrl = "https://www.okex.com"
 
 type OKEx struct {
 	config          *APIConfig
-	OKExSpot        *OKExSpot
+	OKExSpot        *OKExSpotV5
 	OKExFuture      *OKExFuture
 	OKExSwap        *OKExSwap
 	OKExWallet      *OKExWallet
@@ -34,6 +34,7 @@ func NewOKEx(config *APIConfig) *OKEx {
 	}
 	okex := &OKEx{config: config}
 	okex.OKExSpot = &OKExSpot{okex}
+	okex.OKExSpotV5 = &OKExSpotV5{okex}
 	okex.OKExFuture = &OKExFuture{OKEx: okex, Locker: new(sync.Mutex)}
 	okex.OKExWallet = &OKExWallet{okex}
 	okex.OKExMargin = &OKExMargin{okex}
@@ -140,19 +141,19 @@ func (ok *OKEx) IsoTime() string {
 }
 
 func (ok *OKEx) LimitBuy(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
-	return ok.OKExSpot.LimitBuyV5(amount, price, currency, opt...)
+	return ok.OKExSpot.LimitBuy(amount, price, currency, opt...)
 }
 
 func (ok *OKEx) LimitSell(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
-	return ok.OKExSpot.LimitSellV5(amount, price, currency, opt...)
+	return ok.OKExSpot.LimitSell(amount, price, currency, opt...)
 }
 
 func (ok *OKEx) MarketBuy(amount, price string, currency CurrencyPair) (*Order, error) {
-	return ok.OKExSpot.MarketBuyV5(amount, price, currency)
+	return ok.OKExSpot.MarketBuy(amount, price, currency)
 }
 
 func (ok *OKEx) MarketSell(amount, price string, currency CurrencyPair) (*Order, error) {
-	return ok.OKExSpot.MarketSellV5(amount, price, currency)
+	return ok.OKExSpot.MarketSell(amount, price, currency)
 }
 
 func (ok *OKEx) CancelOrder(orderId string, currency CurrencyPair) (bool, error) {

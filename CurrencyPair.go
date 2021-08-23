@@ -64,6 +64,7 @@ var (
 	DASH    = Currency{"DASH", ""}
 	CRV     = Currency{"CRV", ""}
 	ALGO    = Currency{"ALGO", ""}
+	WING     = Currency{"WING", ""}
 
 	//currency pair
 	BTC_KRW = CurrencyPair{CurrencyA: BTC, CurrencyB: KRW, AmountTickSize: 2, PriceTickSize: 1}
@@ -141,6 +142,8 @@ var (
 	NEO_ETH = CurrencyPair{CurrencyA: NEO, CurrencyB: ETH, AmountTickSize: 2, PriceTickSize: 4}
 	HSR_ETH = CurrencyPair{CurrencyA: HSR, CurrencyB: ETH, AmountTickSize: 2, PriceTickSize: 4}
 	LTC_ETH = CurrencyPair{CurrencyA: LTC, CurrencyB: ETH, AmountTickSize: 2, PriceTickSize: 4}
+
+	WING_USDT  = CurrencyPair{CurrencyA: WING, CurrencyB: USDT, AmountTickSize: 2, PriceTickSize: 1}
 
 	UNKNOWN_PAIR = CurrencyPair{CurrencyA: UNKNOWN, CurrencyB: UNKNOWN}
 )
