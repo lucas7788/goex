@@ -144,7 +144,7 @@ func (ok *OKExSpot) PlaceOrderV5(ty string, ord *Order) (*Order, error) {
 	urlPath := "/api/v5/trade/order"
 	param := OrderParamV5{
 		ClOrdId: GenerateOrderClientId(32),
-		InstId:  ord.Currency.AdaptUsdToUsdt().ToLower().ToSymbol("-"),
+		InstId:  ord.Currency.AdaptUsdToUsdt().ToUpper().ToSymbol("-"),
 	}
 	switch ord.Side {
 	case BUY, SELL:
@@ -158,7 +158,7 @@ func (ok *OKExSpot) PlaceOrderV5(ty string, ord *Order) (*Order, error) {
 	case BUY_MARKET:
 		param.TdMode = "cash"
 		param.Side = "buy"
-		param.Px = FloatToString(ord.Price, 5)
+		param.Sz = FloatToString(ord.Amount, 5)
 	default:
 		panic("not support")
 	}
@@ -166,6 +166,7 @@ func (ok *OKExSpot) PlaceOrderV5(ty string, ord *Order) (*Order, error) {
 	switch ty {
 	case "limit":
 		param.OrdType = "limit"
+		param.TdMode = "cash"
 	case "market":
 		param.OrdType = "market"
 	case "post_only":
@@ -271,12 +272,38 @@ func (ok *OKExSpot) LimitBuy(amount, price string, currency CurrencyPair, opt ..
 	})
 }
 
+func (ok *OKExSpot) LimitBuyV5(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
+	ty := "limit"
+	if len(opt) > 0 {
+		ty = opt[0].String()
+	}
+	return ok.PlaceOrderV5(ty, &Order{
+		Price:    ToFloat64(price),
+		Amount:   ToFloat64(amount),
+		Currency: currency,
+		Side:     BUY,
+	})
+}
+
 func (ok *OKExSpot) LimitSell(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
 	ty := "limit"
 	if len(opt) > 0 {
 		ty = opt[0].String()
 	}
 	return ok.PlaceOrder(ty, &Order{
+		Price:    ToFloat64(price),
+		Amount:   ToFloat64(amount),
+		Currency: currency,
+		Side:     SELL,
+	})
+}
+
+func (ok *OKExSpot) LimitSellV5(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
+	ty := "limit"
+	if len(opt) > 0 {
+		ty = opt[0].String()
+	}
+	return ok.PlaceOrderV5(ty, &Order{
 		Price:    ToFloat64(price),
 		Amount:   ToFloat64(amount),
 		Currency: currency,

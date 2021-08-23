@@ -140,11 +140,11 @@ func (ok *OKEx) IsoTime() string {
 }
 
 func (ok *OKEx) LimitBuy(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
-	return ok.OKExSpot.LimitBuy(amount, price, currency, opt...)
+	return ok.OKExSpot.LimitBuyV5(amount, price, currency, opt...)
 }
 
 func (ok *OKEx) LimitSell(amount, price string, currency CurrencyPair, opt ...LimitOrderOptionalParameter) (*Order, error) {
-	return ok.OKExSpot.LimitSell(amount, price, currency, opt...)
+	return ok.OKExSpot.LimitSellV5(amount, price, currency, opt...)
 }
 
 func (ok *OKEx) MarketBuy(amount, price string, currency CurrencyPair) (*Order, error) {

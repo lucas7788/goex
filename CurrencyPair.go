@@ -275,6 +275,11 @@ func (pair CurrencyPair) ToLower() CurrencyPair {
 		CurrencyB: Currency{Symbol: strings.ToLower(pair.CurrencyB.Symbol), Desc: pair.CurrencyB.Desc}}
 }
 
+func (pair CurrencyPair) ToUpper() CurrencyPair {
+	return CurrencyPair{CurrencyA: Currency{Symbol: strings.ToUpper(pair.CurrencyA.Symbol), Desc: pair.CurrencyA.Desc},
+		CurrencyB: Currency{Symbol: strings.ToUpper(pair.CurrencyB.Symbol), Desc: pair.CurrencyB.Desc}}
+}
+
 func (pair CurrencyPair) Reverse() CurrencyPair {
 	return CurrencyPair{CurrencyA: pair.CurrencyB, CurrencyB: pair.CurrencyA,
 		AmountTickSize: pair.AmountTickSize, PriceTickSize: pair.PriceTickSize}
