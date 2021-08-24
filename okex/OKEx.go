@@ -25,6 +25,7 @@ type OKEx struct {
 	OKExV3FuturesWs *OKExV3FuturesWs
 	OKExV3SpotWs    *OKExV3SpotWs
 	OKExV3SwapWs    *OKExV3SwapWs
+	OKExAssetV5     *OKExAssetV5
 	Simulated       bool
 }
 
@@ -33,8 +34,7 @@ func NewOKEx(config *APIConfig) *OKEx {
 		config.Endpoint = baseUrl
 	}
 	okex := &OKEx{config: config}
-	okex.OKExSpot = &OKExSpot{okex}
-	okex.OKExSpotV5 = &OKExSpotV5{okex}
+	okex.OKExSpot = &OKExSpotV5{okex}
 	okex.OKExFuture = &OKExFuture{OKEx: okex, Locker: new(sync.Mutex)}
 	okex.OKExWallet = &OKExWallet{okex}
 	okex.OKExMargin = &OKExMargin{okex}
@@ -43,6 +43,7 @@ func NewOKEx(config *APIConfig) *OKEx {
 	okex.OKExV3SpotWs = NewOKExSpotV3Ws(okex)
 	okex.OKExV3SwapWs = NewOKExV3SwapWs(okex)
 	okex.Simulated = config.Simulated
+	okex.OKExAssetV5 = &OKExAssetV5{okex}
 	return okex
 }
 
