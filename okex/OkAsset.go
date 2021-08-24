@@ -70,7 +70,7 @@ type DepositAddressOKRes struct {
 //限速： 6次/s
 func (self *OKExAssetV5) GetDepositAddress(ccy string) ([]*DepositAddressOKRes, error) {
 
-	url := "/api/v5/asset/currencies?" + ccy
+	url := "/api/v5/asset/deposit-address?ccy=" + ccy
 	var res OKRes
 	err := self.DoRequest("GET", url, "", &res)
 	if err != nil {
@@ -105,7 +105,7 @@ func (self *OKExAssetV5) GetBalances(ccy ...string) ([]*Balance, error) {
 	for i := 1; i < len(ccy); i++ {
 		param += "," + ccy[i]
 	}
-	url := "/api/v5/account/balance?" + param
+	url := "/api/v5/account/balance?ccy=" + param
 	var res OKRes
 	err := self.DoRequest("GET", url, "", &res)
 	if err != nil {
