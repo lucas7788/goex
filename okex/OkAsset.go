@@ -57,6 +57,45 @@ func (self *OKExAssetV5) GetCurrencies() ([]*CurrencyOKRes, error) {
 	return re, nil
 }
 
+type DepositAddressOKRes struct {
+	Chain    string `json:"chain"`    //币种链信息 有的币种下有多个链，必须要做区分，如USDT下有USDT-ERC20，USDT-TRC20，USDT-Omni多个链
+	CtAddr   string `json:"ctAddr"`   //合约地址后6位
+	Ccy      string `json:"ccy"`      //币种，如BTC
+	To       string `json:"to"`       //转入账户 1：币币 3：交割合约 6：资金账户 9：永续合约 12：期权 18：统一账户
+	Selected bool   `json:"selected"` //该地址是否为页面选中的地址
+	Addr     string `json:"addr"`     //充值地址
+}
+
+//获取各个币种的充值地址，包括曾使用过的老地址。
+//限速： 6次/s
+func (self *OKExAssetV5) GetDepositAddress(ccy string) ([]*DepositAddressOKRes, error) {
+
+	url := "/api/v5/asset/currencies?" + ccy
+	var res OKRes
+	err := self.DoRequest("GET", url, "", &res)
+	if err != nil {
+		return nil, err
+	}
+	if res.Code != "0" {
+		return nil, fmt.Errorf("res code: %s, res.Msg: %s", res.Code, res.Msg)
+	}
+	r := res.Data.([]interface{})
+	re := make([]*DepositAddressOKRes, 0)
+	for _, item := range r {
+		data, err := json.Marshal(item)
+		if err != nil {
+			return nil, err
+		}
+		var curren DepositAddressOKRes
+		err = json.Unmarshal(data, &curren)
+		if err != nil {
+			return nil, err
+		}
+		re = append(re, &curren)
+	}
+	return re, nil
+}
+
 // 查询余额
 func (self *OKExAssetV5) GetBalances(ccy ...string) ([]*Balance, error) {
 	if len(ccy) < 1 {
