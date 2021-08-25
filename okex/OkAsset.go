@@ -6,10 +6,10 @@ import (
 )
 
 type Balance struct {
-	AvailBal  string //币种，如 BTC
-	Bal       string // 余额
-	Ccy       string //冻结（不可用）
-	FrozenBal string //可用余额
+	AvailBal  string  `json:"availBal"`  //可用余额
+	Bal       float64 `json:"bal"`       // 余额
+	Ccy       string  `json:"ccy"`       //币种，如 BTC
+	FrozenBal string  `json:"frozenBal"` //冻结（不可用）
 }
 
 type OKExAssetV5 struct {
@@ -105,7 +105,7 @@ func (self *OKExAssetV5) GetBalances(ccy ...string) ([]*Balance, error) {
 	for i := 1; i < len(ccy); i++ {
 		param += "," + ccy[i]
 	}
-	url := "/api/v5/account/balance?ccy=" + param
+	url := "/api/v5/asset/balances?ccy=" + param
 	var res OKRes
 	err := self.DoRequest("GET", url, "", &res)
 	if err != nil {

@@ -26,6 +26,7 @@ type OKEx struct {
 	OKExV3SpotWs    *OKExV3SpotWs
 	OKExV3SwapWs    *OKExV3SwapWs
 	OKExAssetV5     *OKExAssetV5
+	OKExWalletV5    *OKExWalletV5
 	Simulated       bool
 }
 
@@ -44,6 +45,7 @@ func NewOKEx(config *APIConfig) *OKEx {
 	okex.OKExV3SwapWs = NewOKExV3SwapWs(okex)
 	okex.Simulated = config.Simulated
 	okex.OKExAssetV5 = &OKExAssetV5{okex}
+	okex.OKExWalletV5 = &OKExWalletV5{okex}
 	return okex
 }
 
@@ -57,7 +59,7 @@ func (ok *OKEx) UUID() string {
 
 func (ok *OKEx) DoRequest(httpMethod, uri, reqBody string, response interface{}) error {
 	url := ok.config.Endpoint + uri
-	//fmt.Println("url:", url)
+	fmt.Println("url:", url)
 	sign, timestamp := ok.doParamSign(httpMethod, uri, reqBody)
 	//logger.Log.Debug("timestamp=", timestamp, ", sign=", sign)
 	header := map[string]string{
