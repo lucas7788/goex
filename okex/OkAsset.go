@@ -149,10 +149,16 @@ type TransferResponseV5 struct {
 //资产划转
 //支持母账户的资金账户划转到交易账户，母账户到子账户的资金账户和交易账户划转。
 //不支持子账户和子账户之间直接划转。
-func (self *OKExAssetV5) Transfer(tf *TransferParamV5) (*TransferResponseV5, error) {
+func (self *OKExAssetV5) Transfer(Ccy string, Amt string, Ty string, From string, To string) (*TransferResponseV5, error) {
 
 	url := "/api/v5/asset/transfer"
-
+	tf := TransferParamV5{
+		Ccy:  Ccy,
+		Amt:  Amt,
+		Ty:   Ty,
+		From: From,
+		To:   To,
+	}
 	jsonStr, _, _ := self.BuildRequestBody(tf)
 	fmt.Println("jsonStr:", jsonStr)
 	var res OKRes
@@ -181,6 +187,7 @@ func (self *OKExAssetV5) Transfer(tf *TransferParamV5) (*TransferResponseV5, err
 
 type WithdrawalParam struct {
 	Ccy    string `json:"ccy"`    //	币种，如 USDT
+	Chain  string `json:"chain"`  //	链
 	Amt    string `json:"amt"`    //	数量
 	Dest   string `json:"dest"`   //	提币到 3：欧易OKEx 4：数字货币地址
 	ToAddr string `json:"toAddr"` //	认证过的数字货币地址、邮箱或手机号。 某些数字货币地址格式为:地址+标签，如 ARDOR-7JF3-8F2E-QUWZ-CAN7F:123456
@@ -188,14 +195,22 @@ type WithdrawalParam struct {
 	Fee    string `json:"fee"`    //	网络手续费≥0，提币到数字货币地址所需网络手续费可通过获取币种列表接口查询
 }
 
+type WithdrawalRes struct {
+	Ccy   string `json:"ccy"`   //	币种，如 USDT
+	Chain string `json:"chain"` //	链
+	Amt   string `json:"amt"`   //	数量
+	WdId  string `json:"wdId"`  //	提币申请ID
+}
+
 //用户提币。
 //限速： 6次/s
-func (self *OKExAssetV5) Withdrawal(Ccy string, Amt string, Dest string, ToAddr string, Pwd string, Fee string) (*TransferResponseV5, error) {
+func (self *OKExAssetV5) Withdrawal(chain string, Ccy string, Amt string, Dest string, ToAddr string, Pwd string, Fee string) (*WithdrawalRes, error) {
 
 	url := "/api/v5/asset/withdrawal"
 
 	wp := &WithdrawalParam{
 		Ccy:    Ccy,
+		Chain:  chain,
 		Amt:    Amt,
 		Dest:   Dest,
 		ToAddr: ToAddr,
@@ -220,7 +235,7 @@ func (self *OKExAssetV5) Withdrawal(Ccy string, Amt string, Dest string, ToAddr 
 	if err != nil {
 		panic(err)
 	}
-	var tfR TransferResponseV5
+	var tfR WithdrawalRes
 	err = json.Unmarshal(data, &tfR)
 	if err != nil {
 		panic(err)
