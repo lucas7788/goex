@@ -2,7 +2,7 @@ package bitmex
 
 import (
 	"fmt"
-	. "github.com/nntaoli-project/goex"
+	. "github.com/lucas7788/goex"
 	"strings"
 )
 

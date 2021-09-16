@@ -4,7 +4,7 @@ import "time"
 
 //
 import (
-	. "github.com/nntaoli-project/goex"
+	. "github.com/lucas7788/goex"
 )
 
 func adaptKLinePeriod(period KlinePeriod) int {

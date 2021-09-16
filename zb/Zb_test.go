@@ -1,7 +1,7 @@
 package zb
 
 import (
-	"github.com/nntaoli-project/goex"
+	"github.com/lucas7788/goex"
 	"net/http"
 	"testing"
 )

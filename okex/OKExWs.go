@@ -3,13 +3,13 @@ package okex
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nntaoli-project/goex/internal/logger"
+	"github.com/lucas7788/goex/internal/logger"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	. "github.com/nntaoli-project/goex"
+	. "github.com/lucas7788/goex"
 )
 
 type wsResp struct {
