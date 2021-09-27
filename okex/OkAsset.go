@@ -6,10 +6,10 @@ import (
 )
 
 type Balance struct {
-	AvailBal  string  `json:"availBal"`  //可用余额
-	Bal       float64 `json:"bal"`       // 余额
-	Ccy       string  `json:"ccy"`       //币种，如 BTC
-	FrozenBal string  `json:"frozenBal"` //冻结（不可用）
+	AvailBal  string `json:"availBal"`  //可用余额
+	Bal       string `json:"bal"`       // 余额
+	Ccy       string `json:"ccy"`       //币种，如 BTC
+	FrozenBal string `json:"frozenBal"` //冻结（不可用）
 }
 
 type OKExAssetV5 struct {
